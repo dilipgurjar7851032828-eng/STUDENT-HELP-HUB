@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    
+    <!-- Graduation Cap Top Diamond (centered within safe zone) -->
+    <path
+        android:fillColor="#FBBF24"
+        android:pathData="M54,28 L78,39 L54,50 L30,39 Z" />
+
+    <!-- Cap Skull Cap Underneath -->
+    <path
+        android:fillColor="#F59E0B"
+        android:pathData="M39,44 L39,53 C39,59 45,63 54,63 C63,63 69,59 69,53 L69,44 L54,51 Z" />
+
+    <!-- Cap Tassel -->
+    <path
+        android:fillColor="#FDE68A"
+        android:strokeColor="#FDE68A"
+        android:strokeWidth="2"
+        android:pathData="M72,42 L72,56" />
+    <path
+        android:fillColor="#FBBF24"
+        android:pathData="M70,56 C70,55 74,55 74,56 L73,61 L71,61 Z" />
+
+    <!-- Open Knowledge Book Pages Base -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M32,65 C38,62 48,63 53,67 L53,83 C48,79 38,78 32,81 Z" />
+    <path
+        android:fillColor="#F1F5F9"
+        android:pathData="M76,65 C70,62 60,63 55,67 L55,83 C60,79 70,78 76,81 Z" />
+
+    <!-- Book Spine / Center Divider -->
+    <path
+        android:fillColor="#38BDF8"
+        android:pathData="M53,66 L55,66 L55,83 L53,83 Z" />
+
+    <!-- Rising Sun / Knowledge Ray Center -->
+    <path
+        android:fillColor="#60A5FA"
+        android:pathData="M54,71 A3,3 0 1,0 54,77 A3,3 0 1,0 54,71 Z" />
+
+</vector>

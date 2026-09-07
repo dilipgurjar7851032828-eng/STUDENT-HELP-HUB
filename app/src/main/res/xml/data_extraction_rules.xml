@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Data extraction rules for Android 12+ (API 31+)
+    Ensures sensitive student personal, income, category, and application data
+    is excluded from unencrypted cloud backup while supporting secure device-to-device migration.
+-->
+<data-extraction-rules>
+    <cloud-backup>
+        <!-- Exclude local database containing sensitive student profile, income & tracking data -->
+        <exclude domain="database" path="student_help_hub.db"/>
+        <exclude domain="database" path="student_help_hub.db-wal"/>
+        <exclude domain="database" path="student_help_hub.db-shm"/>
+        <exclude domain="database" path="student_help_hub.db-journal"/>
+        <!-- Safe UI preferences (e.g., theme, notification toggles) can be included -->
+        <include domain="sharedpref" path="."/>
+    </cloud-backup>
+    <device-transfer>
+        <!-- Allow direct encrypted local device-to-device transfer on phone upgrade -->
+        <include domain="database" path="student_help_hub.db"/>
+        <include domain="database" path="student_help_hub.db-wal"/>
+        <include domain="database" path="student_help_hub.db-shm"/>
+        <include domain="database" path="student_help_hub.db-journal"/>
+        <include domain="sharedpref" path="."/>
+    </device-transfer>
+</data-extraction-rules>

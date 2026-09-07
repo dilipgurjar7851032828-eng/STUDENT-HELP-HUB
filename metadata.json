@@ -1,0 +1,6 @@
+{
+  "name": "Student Help Hub",
+  "description": "Student ki padhai se career tak, sab ek jagah. Discover colleges, scholarships, admissions, exams, deadlines, documents and career opportunities.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
