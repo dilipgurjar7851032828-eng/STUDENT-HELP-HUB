@@ -3,6 +3,7 @@ package com.example
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.view.KeyEvent
 import android.view.MotionEvent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
@@ -38,12 +39,15 @@ import com.example.ui.screens.DocumentChecklistScreen
 import com.example.ui.screens.HelpCenterScreen
 import com.example.ui.screens.HomeScreen
 import com.example.ui.screens.ImportantDatesScreen
+import com.example.ui.screens.LoginScreen
+import com.example.ui.screens.MereLiyeDashboardScreen
 import com.example.ui.screens.OnboardingScreen
 import com.example.ui.screens.ProfileScreen
 import com.example.ui.screens.SavedItemsScreen
 import com.example.ui.screens.ScholarshipFinderScreen
 import com.example.ui.screens.StudyBuddyAiScreen
 import com.example.ui.theme.MyApplicationTheme
+import com.example.ui.touch.VirtualPhoneKeyHandler
 import com.example.ui.touch.VirtualPhoneTouchHandler
 import com.example.ui.touch.reliableVirtualTouch
 import com.example.ui.viewmodel.AppScreen
@@ -75,6 +79,14 @@ class MainActivity : ComponentActivity() {
             return true
         }
         return super.dispatchTouchEvent(ev)
+    }
+
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (VirtualPhoneKeyHandler.shouldFilterKeyEvent(event)) {
+            // Duplicate keyboard / input event filtered out
+            return true
+        }
+        return super.dispatchKeyEvent(event)
     }
 
     override fun onNewIntent(intent: Intent) {
@@ -110,7 +122,7 @@ fun MainAppContent(viewModel: MainViewModel) {
     }
 
     // Back Handler: Go back through stack if not at root
-    BackHandler(enabled = currentScreen != AppScreen.HOME && currentScreen != AppScreen.ONBOARDING) {
+    BackHandler(enabled = currentScreen != AppScreen.HOME && currentScreen != AppScreen.ONBOARDING && currentScreen != AppScreen.LOGIN) {
         viewModel.navigateBack()
     }
 
@@ -127,11 +139,13 @@ fun MainAppContent(viewModel: MainViewModel) {
                 .padding(innerPadding)
         ) {
             when (currentScreen) {
+                AppScreen.LOGIN -> LoginScreen(viewModel = viewModel)
                 AppScreen.ONBOARDING -> OnboardingScreen(
                     viewModel = viewModel,
                     onComplete = { viewModel.navigateTo(AppScreen.HOME) }
                 )
                 AppScreen.HOME -> HomeScreen(viewModel = viewModel)
+                AppScreen.MERE_LIYE_DASHBOARD -> MereLiyeDashboardScreen(viewModel = viewModel)
                 AppScreen.COLLEGE_FINDER -> CollegeFinderScreen(viewModel = viewModel)
                 AppScreen.SCHOLARSHIP_FINDER -> ScholarshipFinderScreen(viewModel = viewModel)
                 AppScreen.ADMISSION_FORMS -> AdmissionFormsScreen(viewModel = viewModel)

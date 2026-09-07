@@ -20,11 +20,13 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BookmarkRemove
 import androidx.compose.material.icons.filled.Bookmarks
 import androidx.compose.material.icons.filled.OpenInNew
+import androidx.compose.material.icons.filled.RocketLaunch
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -41,6 +43,8 @@ import com.example.ui.components.HubTopBar
 import com.example.ui.theme.BrandIndigo
 import com.example.ui.theme.DangerRed
 import com.example.ui.theme.Slate700
+import com.example.ui.theme.VerifiedGreen
+import com.example.ui.viewmodel.AppScreen
 import com.example.ui.viewmodel.MainViewModel
 
 @Composable
@@ -49,6 +53,7 @@ fun SavedItemsScreen(
     modifier: Modifier = Modifier
 ) {
     val savedItems by viewModel.savedItems.collectAsState()
+    val applications by viewModel.applications.collectAsState()
 
     Column(
         modifier = modifier
@@ -60,6 +65,40 @@ fun SavedItemsScreen(
             subtitle = "${savedItems.size} Bookmarked Opportunities",
             onBackClick = { viewModel.navigateBack() }
         )
+
+        // Save + Application Tracker Connection Banner
+        Surface(
+            color = MaterialTheme.colorScheme.surface,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column {
+                    Text(
+                        text = "Save + Application Tracker 🚀",
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = BrandIndigo
+                    )
+                    Text(
+                        text = "${applications.size} applications currently tracked",
+                        fontSize = 11.sp,
+                        color = Slate700
+                    )
+                }
+                OutlinedButton(
+                    onClick = { viewModel.navigateTo(AppScreen.APPLICATION_TRACKER) },
+                    modifier = Modifier.testTag("jump_to_app_tracker_button")
+                ) {
+                    Text("Open Tracker", fontSize = 11.sp)
+                }
+            }
+        }
 
         if (savedItems.isEmpty()) {
             Box(
@@ -98,6 +137,8 @@ fun SavedItemsScreen(
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 items(savedItems) { item ->
+                    val isTracked = applications.any { it.title.contains(item.title, ignoreCase = true) }
+
                     Card(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -143,6 +184,20 @@ fun SavedItemsScreen(
                             }
 
                             Row(verticalAlignment = Alignment.CenterVertically) {
+                                // 1-Tap Track in Application Tracker
+                                IconButton(
+                                    onClick = {
+                                        viewModel.trackOpportunityFromSaved(item)
+                                    },
+                                    modifier = Modifier.testTag("track_saved_${item.itemId}")
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.RocketLaunch,
+                                        contentDescription = "Track Application",
+                                        tint = if (isTracked) VerifiedGreen else BrandIndigo
+                                    )
+                                }
+
                                 IconButton(
                                     onClick = {
                                         viewModel.handleDeepLink(item.itemId, item.itemType.lowercase())

@@ -1,5 +1,7 @@
 package com.example.ui.screens
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -83,19 +85,24 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.data.model.CollegeItem
 import com.example.data.model.ScholarshipItem
+import com.example.data.ai.AiLiveSearchResultItem
 import com.example.ui.components.MatchStatusPill
 import com.example.ui.components.VerificationBadge
 import com.example.ui.components.OfficialSourcesStatusDialog
 import com.example.ui.theme.BrandAmber
+import com.example.ui.theme.BrandAmberContainer
 import com.example.ui.theme.BrandAmberLight
 import com.example.ui.theme.BrandIndigo
 import com.example.ui.theme.BrandIndigoDark
 import com.example.ui.theme.BrandIndigoLight
+import com.example.ui.theme.Slate50
 import com.example.ui.theme.Slate700
 import com.example.ui.theme.Slate800
 import com.example.ui.theme.Slate900
 import com.example.ui.theme.VerifiedGreen
 import com.example.ui.theme.VerifiedGreenContainer
+import com.example.ui.theme.WarningOrange
+import com.example.ui.theme.WarningOrangeContainer
 import com.example.ui.viewmodel.AppScreen
 import com.example.ui.viewmodel.MainViewModel
 
@@ -115,6 +122,11 @@ fun HomeScreen(
 
     var searchInput by remember { mutableStateOf("") }
     val parsedIntent by viewModel.parsedSearchIntent.collectAsState()
+    val aiSearchResults by viewModel.aiSearchResults.collectAsState()
+    val isAiSearching by viewModel.isAiSearching.collectAsState()
+    val aiSearchSummary by viewModel.aiSearchSummary.collectAsState()
+    val activeAiSearchQuery by viewModel.activeAiSearchQuery.collectAsState()
+    val context = LocalContext.current
     val showWeeklySummaryDialog by viewModel.showWeeklySummary.collectAsState()
     val isSyncingOfficialData by viewModel.isSyncingOfficialData.collectAsState()
     val officialSyncReport by viewModel.officialSyncReport.collectAsState()
@@ -245,17 +257,16 @@ fun HomeScreen(
                             if (searchInput.isNotBlank()) {
                                 IconButton(onClick = {
                                     searchInput = ""
-                                    viewModel.clearNaturalSearch()
+                                    viewModel.clearAiSearch()
                                 }) {
                                     Icon(Icons.Default.Close, contentDescription = "Clear", tint = Color.Gray)
                                 }
                             }
                             IconButton(
                                 onClick = {
-                                    // Natural language search query simulation
-                                    val prompt = searchInput.ifBlank { "12th ke baad Delhi mein government college batao" }
+                                    val prompt = searchInput.ifBlank { "आज कौन से forms open हैं" }
                                     searchInput = prompt
-                                    viewModel.performNaturalSearch(prompt)
+                                    viewModel.performAiLiveSearch(prompt)
                                 },
                                 modifier = Modifier.testTag("voice_search_trigger")
                             ) {
@@ -285,14 +296,87 @@ fun HomeScreen(
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                     keyboardActions = KeyboardActions(onSearch = {
                         if (searchInput.isNotBlank()) {
-                            viewModel.performNaturalSearch(searchInput)
+                            viewModel.performAiLiveSearch(searchInput)
                         }
                     }),
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag("natural_search_input")
                 )
+
+                Spacer(modifier = Modifier.height(12.dp))
+                // Quick AI Search Example Chips (Prompt Requirements)
+                val quickSearchChips = listOf(
+                    "DU admission",
+                    "Rajasthan scholarship",
+                    "BA admission",
+                    "CUET",
+                    "scholarship कितनी मिलेगी",
+                    "आज कौन से forms open हैं"
+                )
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    contentPadding = PaddingValues(horizontal = 2.dp)
+                ) {
+                    items(quickSearchChips) { chipText ->
+                        Surface(
+                            shape = RoundedCornerShape(16.dp),
+                            color = Color.White.copy(alpha = 0.22f),
+                            modifier = Modifier
+                                .testTag("quick_search_chip_$chipText")
+                                .clickable {
+                                    searchInput = chipText
+                                    viewModel.performAiLiveSearch(chipText)
+                                }
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.AutoAwesome,
+                                    contentDescription = null,
+                                    tint = BrandAmber,
+                                    modifier = Modifier.size(12.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = chipText,
+                                    fontSize = 11.sp,
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        }
+                    }
+                }
             }
+        }
+
+        // AI Live Official Search Results Section
+        if (isAiSearching || activeAiSearchQuery.isNotBlank() || aiSearchResults.isNotEmpty()) {
+            AiLiveSearchResultsSection(
+                query = activeAiSearchQuery.ifBlank { searchInput },
+                summary = aiSearchSummary,
+                isLoading = isAiSearching,
+                results = aiSearchResults,
+                onSaveItem = { item -> viewModel.saveAiSearchResultToSaved(item) },
+                onTrackItem = { item -> viewModel.addAiSearchResultToApplicationTracker(item) },
+                onClear = {
+                    searchInput = ""
+                    viewModel.clearAiSearch()
+                },
+                onOpenUrl = { url ->
+                    try {
+                        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
+                            flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                        }
+                        context.startActivity(intent)
+                    } catch (e: Exception) {
+                        viewModel.userNoticeMessage.value = "Official Link: $url"
+                    }
+                }
+            )
         }
 
         // Search Parsing Notification (if active)
@@ -437,7 +521,7 @@ fun HomeScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp)
-                .clickable { viewModel.navigateTo(AppScreen.SCHOLARSHIP_FINDER) }
+                .clickable { viewModel.navigateTo(AppScreen.MERE_LIYE_DASHBOARD) }
                 .testTag("main_cta_card"),
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(
@@ -1142,6 +1226,462 @@ fun TrendingItemRow(
                         text = "$views views",
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun AiLiveSearchResultsSection(
+    query: String,
+    summary: String?,
+    isLoading: Boolean,
+    results: List<AiLiveSearchResultItem>,
+    onSaveItem: (AiLiveSearchResultItem) -> Unit,
+    onTrackItem: (AiLiveSearchResultItem) -> Unit,
+    onClear: () -> Unit,
+    onOpenUrl: (String) -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp)
+            .testTag("ai_live_search_results_section"),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = Color.White
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(modifier = Modifier.padding(16.dp)) {
+            // Header bar
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = BrandIndigo
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.AutoAwesome,
+                                contentDescription = null,
+                                tint = BrandAmber,
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "AI LIVE SEARCH",
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.White
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "\"$query\"",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Slate900,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                IconButton(
+                    onClick = onClear,
+                    modifier = Modifier
+                        .size(28.dp)
+                        .testTag("clear_ai_search_button")
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = "Clear Search",
+                        tint = Slate700
+                    )
+                }
+            }
+
+            if (!summary.isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                ) {
+                    Text(
+                        text = summary,
+                        fontSize = 12.sp,
+                        color = Slate800,
+                        modifier = Modifier.padding(8.dp)
+                    )
+                }
+            }
+
+            if (isLoading) {
+                Spacer(modifier = Modifier.height(20.dp))
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 12.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        color = BrandIndigo,
+                        strokeWidth = 2.dp
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text(
+                        text = "Searching official portals & verifying...",
+                        fontSize = 13.sp,
+                        color = Slate700,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            } else if (results.isEmpty()) {
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = "No results found. Please check spelling or verify on official portals.",
+                    fontSize = 13.sp,
+                    color = Slate700
+                )
+            } else {
+                Spacer(modifier = Modifier.height(14.dp))
+                Text(
+                    text = "${results.size} Verified Result(s) from Official Sources:",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Slate700
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                results.forEach { item ->
+                    AiLiveResultCard(
+                        item = item,
+                        onSave = { onSaveItem(item) },
+                        onTrack = { onTrackItem(item) },
+                        onOpenUrl = onOpenUrl
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun AiLiveResultCard(
+    item: AiLiveSearchResultItem,
+    onSave: () -> Unit,
+    onTrack: () -> Unit,
+    onOpenUrl: (String) -> Unit
+) {
+    val isVerified = item.verificationStatus.equals("VERIFIED", ignoreCase = true)
+
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .testTag("ai_result_card_${item.id}"),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = Slate50
+        ),
+        elevation = CardDefaults.cardElevation(1.dp)
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            // Category & Verification Badge Row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = BrandIndigo.copy(alpha = 0.12f)
+                ) {
+                    Text(
+                        text = item.categoryType.uppercase(),
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = BrandIndigo,
+                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
+                    )
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = if (isVerified) VerifiedGreenContainer else WarningOrangeContainer
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = if (isVerified) Icons.Default.CheckCircle else Icons.Default.HelpOutline,
+                            contentDescription = null,
+                            tint = if (isVerified) VerifiedGreen else WarningOrange,
+                            modifier = Modifier.size(12.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = if (isVerified) "VERIFIED" else "NEEDS VERIFICATION",
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (isVerified) VerifiedGreen else WarningOrange
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Title
+            Text(
+                text = item.title,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
+                color = Slate900
+            )
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            // 1. Information
+            Text(
+                text = item.information,
+                fontSize = 12.sp,
+                color = Slate800,
+                lineHeight = 17.sp
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // 2. Eligibility
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = Color.White,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Row(
+                    modifier = Modifier.padding(8.dp),
+                    verticalAlignment = Alignment.Top
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.School,
+                        contentDescription = null,
+                        tint = BrandIndigo,
+                        modifier = Modifier.size(15.dp).padding(top = 1.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Column {
+                        Text(
+                            text = "Eligibility Criteria",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Slate900
+                        )
+                        Text(
+                            text = item.eligibility,
+                            fontSize = 11.sp,
+                            color = Slate700
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            // 3. Amount / Fees & 4. Deadline Row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Amount / Fees
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = BrandAmberContainer.copy(alpha = 0.5f),
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Column(modifier = Modifier.padding(8.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.MonetizationOn,
+                                contentDescription = null,
+                                tint = BrandAmber,
+                                modifier = Modifier.size(13.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "Amount / Fees",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = BrandAmber
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = item.amountOrFees,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Slate900
+                        )
+                    }
+                }
+
+                // Deadline
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color.White,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Column(modifier = Modifier.padding(8.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.CalendarMonth,
+                                contentDescription = null,
+                                tint = BrandIndigo,
+                                modifier = Modifier.size(13.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "Deadline",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = BrandIndigo
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = item.deadline,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Slate900
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // 5. Official Source & 7. Last Verified
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Shield,
+                        contentDescription = null,
+                        tint = Slate700,
+                        modifier = Modifier.size(13.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = item.officialSource,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Slate700,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                Text(
+                    text = "Verified: ${item.lastVerified}",
+                    fontSize = 10.sp,
+                    color = Slate700
+                )
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // 6. Official Link & Actions
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Button(
+                    onClick = { onOpenUrl(item.officialLink) },
+                    modifier = Modifier
+                        .weight(1.2f)
+                        .testTag("open_official_portal_${item.id}"),
+                    colors = ButtonDefaults.buttonColors(containerColor = BrandIndigo),
+                    shape = RoundedCornerShape(8.dp),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.OpenInNew,
+                            contentDescription = null,
+                            tint = Color.White,
+                            modifier = Modifier.size(14.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "Official Portal",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color.White
+                        )
+                    }
+                }
+
+                Button(
+                    onClick = onSave,
+                    modifier = Modifier
+                        .weight(1f)
+                        .testTag("save_ai_item_${item.id}"),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                    shape = RoundedCornerShape(8.dp),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Bookmark,
+                            contentDescription = null,
+                            tint = Slate900,
+                            modifier = Modifier.size(13.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "Save",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Slate900
+                        )
+                    }
+                }
+
+                Button(
+                    onClick = onTrack,
+                    modifier = Modifier
+                        .weight(1f)
+                        .testTag("track_ai_item_${item.id}"),
+                    colors = ButtonDefaults.buttonColors(containerColor = BrandAmber),
+                    shape = RoundedCornerShape(8.dp),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 6.dp)
+                ) {
+                    Text(
+                        text = "+ Track",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
                     )
                 }
             }

@@ -298,6 +298,91 @@ fun ProfileScreen(
 
         Spacer(modifier = Modifier.height(14.dp))
 
+        // Account System & Session Management Card
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .testTag("account_session_card"),
+            shape = RoundedCornerShape(14.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            elevation = CardDefaults.cardElevation(1.5.dp)
+        ) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(text = "Account Status", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    Surface(
+                        color = if (profile?.isGuest == true) BrandAmber.copy(alpha = 0.15f) else VerifiedGreen.copy(alpha = 0.15f),
+                        shape = RoundedCornerShape(6.dp)
+                    ) {
+                        Text(
+                            text = if (profile?.isGuest == true) "GUEST MODE" else "REGISTERED USER",
+                            color = if (profile?.isGuest == true) BrandAmber else VerifiedGreen,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                if (profile?.isGuest == true) {
+                    Text(
+                        text = "You are currently using the app in Guest Mode. Your saved opportunities and application tracker are temporary.",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Button(
+                        onClick = { viewModel.navigateTo(AppScreen.LOGIN) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("profile_login_signup_btn"),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Text("Login or Create Account", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    }
+                } else {
+                    Text(
+                        text = "Logged in as: ${profile?.email?.ifBlank { profile?.fullName } ?: "Active Student"}",
+                        fontSize = 12.sp,
+                        color = Slate700
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = { viewModel.logoutUser() },
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("profile_logout_btn"),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Text("Sign Out / Switch", fontSize = 12.sp)
+                        }
+                        Button(
+                            onClick = { viewModel.navigateTo(AppScreen.LOGIN) },
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("profile_switch_account_btn"),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Text("Change Account", fontSize = 12.sp)
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
         // App Preferences
         Card(
             modifier = Modifier

@@ -284,4 +284,61 @@ class StudentHubRepository(private val dao: StudentHubDao) {
             )
         }
     }
+
+    suspend fun clearPersonalDataForNewUser() {
+        dao.clearApplications()
+        dao.clearSavedItems()
+        dao.clearReminders()
+        dao.resetDocuments()
+    }
+
+    suspend fun seedDemoPersonalData() {
+        dao.clearApplications()
+        dao.clearSavedItems()
+        dao.clearReminders()
+        dao.insertApplication(
+            com.example.data.model.ApplicationItem(
+                title = "JEE Main 2026 Session 1",
+                category = "EXAM",
+                targetName = "National Testing Agency",
+                status = "APPLIED",
+                deadlineDate = "2026-11-30",
+                appliedDate = "2026-08-20",
+                applicationNumber = "26031008492"
+            )
+        )
+        dao.insertApplication(
+            com.example.data.model.ApplicationItem(
+                title = "Central Sector Scholarship Scheme",
+                category = "SCHOLARSHIP",
+                targetName = "Ministry of Education",
+                status = "PLANNING",
+                deadlineDate = "2026-10-31"
+            )
+        )
+        dao.insertSavedItem(
+            com.example.data.model.SavedItem(
+                itemType = "SCHOLARSHIP",
+                itemId = "sch_nsp_css",
+                title = "Central Sector Scheme of Scholarship",
+                subtitle = "Ministry of Education • ₹20,000/yr"
+            )
+        )
+        dao.insertSavedItem(
+            com.example.data.model.SavedItem(
+                itemType = "COLLEGE",
+                itemId = "c_du_central",
+                title = "University of Delhi (CSAS Central Portal)",
+                subtitle = "Central University • New Delhi"
+            )
+        )
+        dao.insertReminder(
+            com.example.data.model.ReminderItem(
+                title = "NSP Scholarship document submission",
+                targetDate = "2026-10-25",
+                targetTime = "10:00 AM",
+                relatedCategory = "SCHOLARSHIP"
+            )
+        )
+    }
 }

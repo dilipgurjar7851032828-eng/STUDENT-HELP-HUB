@@ -29,6 +29,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -207,8 +208,11 @@ fun ImportantDatesScreen(
     if (showAddReminderDialog) {
         AddReminderDialog(
             onDismiss = { showAddReminderDialog = false },
-            onAdd = { title, date, time ->
+            onAdd = { title, date, time, multiStage ->
                 viewModel.addReminder(title, date, time)
+                if (multiStage) {
+                    viewModel.scheduleMultiStageDeadlineReminders(title, date)
+                }
                 showAddReminderDialog = false
             }
         )
@@ -256,7 +260,7 @@ fun DeadlineCard(
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     val isExpired = OfficialSourceVerifier.isDeadlineExpired(deadline.deadlineDate)
-                    val status = if (isExpired) "EXPIRED" else "VERIFIED"
+                    val status = if (isExpired) "EXPIRED" else deadline.verificationStatus
                     VerificationBadge(status = status)
                     Spacer(modifier = Modifier.width(6.dp))
                     Surface(
@@ -291,7 +295,7 @@ fun DeadlineCard(
 
             Spacer(modifier = Modifier.height(6.dp))
             Text(
-                text = "• Official Source: Central/State Education Authority • Verified: ${OfficialSourceVerifier.getTodayDate()}",
+                text = "• Official Source: ${deadline.categoryType} Official Portal • Last Updated: ${deadline.lastUpdated}",
                 fontSize = 11.sp,
                 color = com.example.ui.theme.Slate700
             )
@@ -331,6 +335,36 @@ fun DeadlineCard(
                 }
             }
 
+            Spacer(modifier = Modifier.height(6.dp))
+
+            // 4-Stage Deadline Reminders Milestones indicator
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Alerts:",
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = com.example.ui.theme.Slate700
+                )
+                listOf("30 Days", "7 Days", "1 Day", "Deadline Day").forEach { milestone ->
+                    Surface(
+                        color = if (deadline.isReminderSet) BrandAmber.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                        shape = RoundedCornerShape(4.dp)
+                    ) {
+                        Text(
+                            text = milestone,
+                            fontSize = 9.sp,
+                            fontWeight = if (deadline.isReminderSet) FontWeight.Bold else FontWeight.Normal,
+                            color = if (deadline.isReminderSet) BrandAmber else Color.Gray,
+                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                        )
+                    }
+                }
+            }
+
             Spacer(modifier = Modifier.height(8.dp))
 
             OfficialSourceButton(
@@ -345,11 +379,12 @@ fun DeadlineCard(
 @Composable
 fun AddReminderDialog(
     onDismiss: () -> Unit,
-    onAdd: (String, String, String) -> Unit
+    onAdd: (String, String, String, Boolean) -> Unit
 ) {
     var title by remember { mutableStateOf("") }
     var date by remember { mutableStateOf("2026-10-31") }
     var time by remember { mutableStateOf("10:00 AM") }
+    var enableMultiStageAlerts by remember { mutableStateOf(true) }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -382,13 +417,32 @@ fun AddReminderDialog(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth()
                 )
+                Spacer(modifier = Modifier.height(10.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { enableMultiStageAlerts = !enableMultiStageAlerts }
+                        .padding(vertical = 4.dp)
+                ) {
+                    Checkbox(
+                        checked = enableMultiStageAlerts,
+                        onCheckedChange = { enableMultiStageAlerts = it }
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Enable 4-stage alerts (30d, 7d, 1d, deadline day)",
+                        fontSize = 11.sp,
+                        color = com.example.ui.theme.Slate700
+                    )
+                }
             }
         },
         confirmButton = {
             Button(
                 onClick = {
                     if (title.isNotBlank()) {
-                        onAdd(title, date, time)
+                        onAdd(title, date, time, enableMultiStageAlerts)
                     }
                 },
                 modifier = Modifier.testTag("save_reminder_button")

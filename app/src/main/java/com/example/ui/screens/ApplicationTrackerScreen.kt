@@ -21,6 +21,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Alarm
+import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.BookmarkAdd
 import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
@@ -74,8 +77,10 @@ fun ApplicationTrackerScreen(
     modifier: Modifier = Modifier
 ) {
     val applications by viewModel.applications.collectAsState()
+    val savedItems by viewModel.savedItems.collectAsState()
     val statusFilter by viewModel.appStatusFilter.collectAsState()
     var showAddDialog by remember { mutableStateOf(false) }
+    var showImportFromSavedDialog by remember { mutableStateOf(false) }
     var selectedAppForEdit by remember { mutableStateOf<ApplicationItem?>(null) }
 
     val statusList = listOf("ALL", "PLANNING", "APPLIED", "UNDER_REVIEW", "COMPLETED", "REJECTED", "EXPIRED")
@@ -95,6 +100,44 @@ fun ApplicationTrackerScreen(
                 subtitle = "${applications.size} Applications Monitored",
                 onBackClick = { viewModel.navigateBack() }
             )
+
+            // Save + Application Tracker Bridge Banner
+            if (savedItems.isNotEmpty()) {
+                Surface(
+                    color = BrandIndigo.copy(alpha = 0.08f),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Default.Bookmark,
+                                contentDescription = null,
+                                tint = BrandIndigo,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "${savedItems.size} Saved Bookmarks available",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = BrandIndigo
+                            )
+                        }
+                        OutlinedButton(
+                            onClick = { showImportFromSavedDialog = true },
+                            modifier = Modifier.testTag("add_from_saved_button")
+                        ) {
+                            Text("Add from Saved 🔖", fontSize = 11.sp)
+                        }
+                    }
+                }
+            }
 
             // Status Filter Chips
             Surface(
@@ -150,7 +193,10 @@ fun ApplicationTrackerScreen(
                         ApplicationCard(
                             app = app,
                             onEditStatus = { selectedAppForEdit = app },
-                            onDelete = { viewModel.deleteApplication(app.id) }
+                            onDelete = { viewModel.deleteApplication(app.id) },
+                            onScheduleReminders = {
+                                viewModel.scheduleMultiStageDeadlineReminders(app.title, app.deadlineDate, app.category)
+                            }
                         )
                     }
                 }
@@ -194,13 +240,25 @@ fun ApplicationTrackerScreen(
             }
         )
     }
+
+    if (showImportFromSavedDialog) {
+        ImportFromSavedDialog(
+            savedItems = savedItems,
+            onImport = { savedItem ->
+                viewModel.trackOpportunityFromSaved(savedItem)
+                showImportFromSavedDialog = false
+            },
+            onDismiss = { showImportFromSavedDialog = false }
+        )
+    }
 }
 
 @Composable
 fun ApplicationCard(
     app: ApplicationItem,
     onEditStatus: () -> Unit,
-    onDelete: () -> Unit
+    onDelete: () -> Unit,
+    onScheduleReminders: () -> Unit
 ) {
     val (statusBg, statusTextColor) = when (app.status.uppercase()) {
         "PLANNING" -> Pair(BrandAmber.copy(alpha = 0.15f), BrandAmber)
@@ -314,6 +372,25 @@ fun ApplicationCard(
                     label = "Open Application Portal",
                     modifier = Modifier.fillMaxWidth()
                 )
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            // 4-Stage Deadline Alerts Action
+            OutlinedButton(
+                onClick = onScheduleReminders,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("app_schedule_alerts_${app.id}")
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Alarm,
+                    contentDescription = null,
+                    tint = BrandAmber,
+                    modifier = Modifier.size(15.dp)
+                )
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Set 4-Stage Alerts (30d, 7d, 1d, Day) ⏰", fontSize = 11.sp, fontWeight = FontWeight.SemiBold)
             }
         }
     }
@@ -481,6 +558,91 @@ fun EditStatusDialog(
         confirmButton = {},
         dismissButton = {
             TextButton(onClick = onDismiss) { Text("Cancel") }
+        }
+    )
+}
+
+@Composable
+fun ImportFromSavedDialog(
+    savedItems: List<com.example.data.model.SavedItem>,
+    onImport: (com.example.data.model.SavedItem) -> Unit,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Add from Saved Bookmarks 🔖", fontWeight = FontWeight.Bold) },
+        text = {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = "Select a bookmarked opportunity to monitor in your Application Tracker:",
+                    fontSize = 12.sp,
+                    color = Slate700
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                if (savedItems.isEmpty()) {
+                    Text(
+                        text = "No saved bookmarks found. Save colleges or scholarships first!",
+                        fontSize = 12.sp,
+                        color = Color.Gray
+                    )
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(260.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        items(savedItems) { saved ->
+                            Card(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clickable { onImport(saved) }
+                                    .testTag("import_saved_item_${saved.itemId}"),
+                                shape = RoundedCornerShape(8.dp),
+                                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = saved.title,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 13.sp
+                                        )
+                                        Text(
+                                            text = "${saved.itemType} • ${saved.subtitle}",
+                                            fontSize = 11.sp,
+                                            color = Slate700
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Surface(
+                                        color = BrandIndigo,
+                                        shape = RoundedCornerShape(4.dp)
+                                    ) {
+                                        Text(
+                                            text = "Track",
+                                            color = Color.White,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 11.sp,
+                                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Close") }
         }
     )
 }
